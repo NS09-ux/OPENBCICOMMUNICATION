@@ -1,39 +1,55 @@
 """
 Configuration for the OpenBCI → ML pipeline.
 
-Your setup: reference node, silence/DRL node, and two nodes on the bicep.
-The OpenBCI CSV has 8 EXG columns (EXG Channel 0 .. EXG Channel 7).
-Map which column indices correspond to your bicep channels.
+Supports:
+- EMG: 10 electrodes (Cyton + Daisy required; use 10 of the 16 EXG channels).
+- EEG: 16 electrodes (Cyton + Daisy, all 16 EXG channels).
 
-Example: if reference was on EXG 0, DRL on EXG 1, and the two bicep
-electrodes on EXG 2 and EXG 3, set bicep_channel_indices = [2, 3].
+Set ACTIVE_CHANNELS to "emg" or "eeg" to choose which set is used for streaming and CSV pipeline.
 """
 
-# Which EXG column indices (0–7) are your bicep channels?
-# Change these to match how you wired the board (ref/DRL may use 0 and 1).
-BICEP_CHANNEL_INDICES = [0, 1]  # e.g. [2, 3] if bicep is on channels 2 and 3
+# --- Channel layout (indices 0–15 on Cyton + Daisy) ---
+# EMG: 10 electrodes. Set to the EXG indices where your 10 EMG electrodes are connected.
+EMG_CHANNEL_INDICES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]  # 10 channels
 
-# OpenBCI Cyton typical rate (Hz)
-SAMPLE_RATE_HZ = 250
+# EEG: 16 electrodes. All 16 EXG channels (Cyton + Daisy).
+EEG_CHANNEL_INDICES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]  # 16 channels
 
-# Preprocessing
-HIGHPASS_HZ = 0.5   # Remove DC / slow drift (OpenBCI has DC offset)
-LOWPASS_HZ = 100.0  # Optional; for EMG often 20–500 Hz, for general biosignal 100 is safe
-# Set USE_EMG_BAND = True to bandpass 20–450 Hz (better for muscle activity)
+# Which set to use for streaming and CSV pipeline: "emg" or "eeg"
+ACTIVE_CHANNELS = "emg"
+
+# Backward compatibility: used only if ACTIVE_CHANNELS is not set (legacy).
+# Prefer EMG_CHANNEL_INDICES / EEG_CHANNEL_INDICES + ACTIVE_CHANNELS.
+BICEP_CHANNEL_INDICES = [1, 6]
+
+# --- Board and sampling ---
+# Cyton + Daisy required for 16 channels. Daisy sampling rate is 125 Hz; Cyton-only is 250 Hz.
+CYTON_DAISY = True
+SAMPLE_RATE_HZ = 125  # 125 for Daisy; use 250 for Cyton-only (8 ch)
+
+# --- Preprocessing ---
+# For EEG (e.g. SSVEP) set USE_EMG_BAND = False so you keep 4–60 Hz; for EMG keep True.
+HIGHPASS_HZ = 0.5   # Remove DC / slow drift
+LOWPASS_HZ = 100.0
 USE_EMG_BAND = True
 EMG_LOW_HZ = 20.0
 EMG_HIGH_HZ = 450.0
 
-# Segmentation: window length and step (seconds)
+# --- Segmentation ---
 WINDOW_LENGTH_S = 2.0
-WINDOW_STEP_S = 1.0   # Overlap = window_length - step
+WINDOW_STEP_S = 1.0
 
-# Output
+# --- Output ---
 FEATURES_CSV_PATH = "features.csv"
 
-# --- Real-time streaming (Cyton over USB serial) ---
-# Windows: "COM3", "COM4", etc. Linux/Mac: "/dev/ttyUSB0" or similar.
-# Set to None to auto-detect (pyOpenBCI may try to find a port).
-CYTON_SERIAL_PORT = "COM4"
-# Set True if using Cyton + Daisy (16 channels).
-CYTON_DAISY = False
+# --- Streaming ---
+CYTON_SERIAL_PORT = "COM3"  # Windows. On Pi: "/dev/ttyUSB0" or "/dev/ttyACM0"
+
+
+def get_active_channel_indices():
+    """Return the list of EXG channel indices to use (10 for EMG, 16 for EEG)."""
+    if ACTIVE_CHANNELS == "eeg":
+        return list(EEG_CHANNEL_INDICES)
+    if ACTIVE_CHANNELS == "emg":
+        return list(EMG_CHANNEL_INDICES)
+    return list(BICEP_CHANNEL_INDICES)

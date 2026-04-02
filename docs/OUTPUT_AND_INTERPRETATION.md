@@ -30,7 +30,7 @@ To go from **raw signals** to **one command per window** (e.g. for a robot), you
    SSVEP comes from the visual cortex, so use **occipital** channels (e.g. O1, Oz, O2) if you have them. In **`config/pipeline_config.py`** set `BICEP_CHANNEL_INDICES` to the EXG indices that are your occipital channels (e.g. `[2, 3, 4]` for three electrodes at the back of the head).
 
 2. **Use the SSVEP interpreter**  
-   The repo includes **`ssvep_interpreter.py`**. It takes a short window of EEG, bandpass-filters it for SSVEP (e.g. 4–60 Hz), computes power at 5, 10, 15, 25, and 50 Hz, and picks the strongest. That frequency is mapped to a command using **`config/ssvep_config.py`** (FRONT, BACK, LEFT, RIGHT, STARTSTOP).
+   The repo includes **`ssvep_interpreter/`** (package). It takes a short window of EEG, bandpass-filters it for SSVEP (e.g. 4–60 Hz), computes power at 5, 10, 15, 25, and 50 Hz, and picks the strongest. That frequency is mapped to a command using **`config/ssvep_config.py`** (FRONT, BACK, LEFT, RIGHT, STARTSTOP).
 
 3. **Run the stream with SSVEP**  
    Run:

@@ -32,8 +32,7 @@ from openbci_ml_pipeline import (
     extract_features_for_window,
 )
 from config.pipeline_config import (
-    BICEP_CHANNEL_INDICES,
-    SAMPLE_RATE_HZ,
+    get_active_channel_indices,
     WINDOW_LENGTH_S,
     WINDOW_STEP_S,
     CYTON_SERIAL_PORT,
@@ -46,6 +45,7 @@ def run_stream(
     on_features=None,
     verbose: bool = True,
     ssvep: bool = False,
+    gesture: bool = False,
 ):
     """
     Stream from Cyton in real time using BrainFlow; every WINDOW_STEP_S seconds
@@ -58,6 +58,7 @@ def run_stream(
     verbose: If True, print each feature set or command to stdout.
     ssvep: If True, interpret window as SSVEP EEG and output command (FRONT/LEFT/etc.)
            Set BICEP_CHANNEL_INDICES to occipital channels (e.g. O1, Oz, O2).
+    gesture: If True (and not ssvep), run gesture_interpreter on EMG features.
     """
     if BoardShim is None or BrainFlowInputParams is None or BoardIds is None:
         raise ImportError(
@@ -73,12 +74,12 @@ def run_stream(
 
     board_id = BoardIds.CYTON_DAISY_BOARD if CYTON_DAISY else BoardIds.CYTON_BOARD
     exg_channels = BoardShim.get_exg_channels(board_id)
-    # Subset of EXG row indices for our bicep channels (0..7 map to EXG 0..7)
-    channel_rows = [exg_channels[i] for i in BICEP_CHANNEL_INDICES if i < len(exg_channels)]
-    if len(channel_rows) != len(BICEP_CHANNEL_INDICES):
+    active_indices = get_active_channel_indices()
+    channel_rows = [exg_channels[i] for i in active_indices if i < len(exg_channels)]
+    if len(channel_rows) != len(active_indices):
         raise ValueError(
-            f"BICEP_CHANNEL_INDICES {BICEP_CHANNEL_INDICES} out of range for "
-            f"{len(exg_channels)} EXG channels."
+            f"Active channel indices {active_indices} out of range for "
+            f"{len(exg_channels)} EXG channels (use CYTON_DAISY=True for 16 ch)."
         )
 
     fs = BoardShim.get_sampling_rate(board_id)

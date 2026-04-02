@@ -10,9 +10,10 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-_script_dir = Path(__file__).resolve().parent
-if str(_script_dir) not in sys.path:
-    sys.path.insert(0, str(_script_dir))
+# Project root (parent of ssvep_interpreter package)
+_project_root = Path(__file__).resolve().parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
 
 import numpy as np
 from scipy import signal as scipy_signal
@@ -21,10 +22,8 @@ from typing import Optional
 from config.ssvep_config import FREQUENCY_LIST_HZ, COMMAND_NAMES, get_command_for_frequency
 
 
-# SSVEP bandpass (Hz): typical range for flicker responses
 SSVEP_LOW_HZ = 4.0
 SSVEP_HIGH_HZ = 60.0
-# Bin width (Hz) for power at each target frequency
 FREQ_BIN_HZ = 1.0
 
 
@@ -66,16 +65,6 @@ def interpret_ssvep_window(
     """
     From one window of EEG (samples x channels), return the SSVEP command with
     highest power at the target frequencies.
-
-    window: (n_samples, n_channels) in µV
-    fs: sampling rate (Hz)
-    freq_bin_hz: width of frequency bin for power (default 1 Hz)
-
-    Returns dict with:
-      - command: str, e.g. "LEFT", "FRONT", or "NONE" if no clear peak
-      - frequency_hz: float, best frequency
-      - power: float, power at that frequency (averaged across channels)
-      - powers: dict freq -> power for debugging
     """
     if window.size == 0 or window.shape[0] < 10:
         return {"command": "NONE", "frequency_hz": 0.0, "power": 0.0, "powers": {}}

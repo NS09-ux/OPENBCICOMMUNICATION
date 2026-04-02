@@ -48,15 +48,22 @@ Output: `features.csv` (one row per time window) and optionally a plot of prepro
    Override port: `python stream_openbci.py --port COM3`. Press **Ctrl+C** to stop.
 3. For **SSVEP → command** output: set channel indices to occipital (e.g. O1, Oz, O2), then run `python stream_openbci.py --ssvep` to print one command per window (FRONT, LEFT, etc.). See ** [docs/OUTPUT_AND_INTERPRETATION.md](docs/OUTPUT_AND_INTERPRETATION.md)** for what the program outputs and how to get commands.
 
+## EMG gesture interpreter & ROS 2 (Kinova / lab pipeline)
+
+- **`gesture_interpreter/`** — 4-channel binary EMG `[bicep, forearm, shoulder, thumb]`, time window, combined patterns → command strings (`HOME`, `MOVE_FORWARD`, …).
+- **`gesture_interpreter_ros/`** — ROS 2 Jazzy node: subscribes to `/emg_commands`, publishes `/robot_commands` and deadman-gated `/robot_motion_command`.
+- **Build & run (Ubuntu 24.04 + Jazzy):** see **[README_ROS2.md](README_ROS2.md)** (`colcon build`, Raspberry Pi or lab PC).
+- **Layout:** [docs/PROJECT_LAYOUT.md](docs/PROJECT_LAYOUT.md), Pi notes: [docs/RASPBERRY_PI_LAYOUT.md](docs/RASPBERRY_PI_LAYOUT.md).
+
 ## Roadmap
 
 - **Phase 2 (current)**: ML pipeline for processing OpenBCI data (this repo).
 - **Phase 2 (SSVEP)**: Classify flicker frequency → map to robot commands.
-- **Phase 3**: Publish BCI commands to ROS for robotic base control (e.g. Husky).
+- **Phase 3**: ROS integration — SSVEP / EMG commands to robot (Husky `cmd_vel`, Kinova gesture strings via `gesture_interpreter_ros`).
 
 ## Pushing to GitHub
 
-To store this project in a new GitHub repo, see **[docs/GITHUB_SETUP.md](docs/GITHUB_SETUP.md)** for step-by-step instructions (create repo on GitHub, then `git init`, add, commit, push).
+To store this project in a new GitHub repo, see **[docs/GITHUB_SETUP.md](docs/GITHUB_SETUP.md)** for step-by-step instructions (create repo on GitHub, then add remote, commit, push).
 
 ## License
 

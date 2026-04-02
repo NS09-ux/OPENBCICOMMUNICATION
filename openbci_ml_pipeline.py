@@ -23,7 +23,7 @@ from typing import Tuple, Optional
 # Project config
 try:
     from config.pipeline_config import (
-        BICEP_CHANNEL_INDICES,
+        get_active_channel_indices,
         SAMPLE_RATE_HZ,
         HIGHPASS_HZ,
         LOWPASS_HZ,
@@ -35,7 +35,8 @@ try:
         FEATURES_CSV_PATH,
     )
 except ImportError:
-    BICEP_CHANNEL_INDICES = [0, 1]
+    def get_active_channel_indices():
+        return [0, 1]
     SAMPLE_RATE_HZ = 250
     HIGHPASS_HZ = 0.5
     LOWPASS_HZ = 100.0
@@ -60,29 +61,31 @@ def load_openbci_csv(csv_path: str) -> Tuple[pd.DataFrame, np.ndarray, float]:
     # Find EXG columns: "EXG Channel 0" ... "EXG Channel 7" or similar
     exg_cols = [c for c in df.columns if "EXG" in c or (isinstance(c, str) and "Channel" in c and c.split()[-1].isdigit())]
     if not exg_cols:
-        # Fallback: assume first 8 numeric columns after index are EXG
         numeric = df.select_dtypes(include=[np.number]).columns.tolist()
-        exg_cols = numeric[1:9] if len(numeric) >= 9 else numeric[:8]
+        exg_cols = numeric[1:17] if len(numeric) >= 17 else numeric[:16]
 
-    # Build channel index -> column name (allow 0..7)
+    # Build channel index -> column name (allow 0..15 for Cyton+Daisy)
+    MAX_EXG = 16
     channel_cols = []
-    for i in range(8):
+    for i in range(MAX_EXG):
+        found = False
         for c in exg_cols:
             if f"Channel {i}" in c or c == f"EXG Channel {i}":
                 channel_cols.append(c)
+                found = True
                 break
-        else:
-            if i < len(exg_cols):
-                channel_cols.append(exg_cols[i])
+        if not found and i < len(exg_cols):
+            channel_cols.append(exg_cols[i])
 
-    if len(channel_cols) < max(BICEP_CHANNEL_INDICES) + 1:
+    active_indices = get_active_channel_indices()
+    if not active_indices or len(channel_cols) <= max(active_indices):
         raise ValueError(
-            f"Config has bicep channels {BICEP_CHANNEL_INDICES} but only {len(channel_cols)} EXG columns found. "
+            f"Config needs channel indices up to {max(active_indices)} but CSV has {len(channel_cols)} EXG columns. "
             "Check pipeline_config.py and your CSV header."
         )
 
-    bicep_cols = [channel_cols[i] for i in BICEP_CHANNEL_INDICES]
-    data = df[bicep_cols].values.astype(np.float64)
+    selected_cols = [channel_cols[i] for i in active_indices]
+    data = df[selected_cols].values.astype(np.float64)
     # Replace any NaN with 0 for safety
     np.nan_to_num(data, copy=False, nan=0.0)
     return df, data, SAMPLE_RATE_HZ
@@ -135,7 +138,7 @@ def extract_features_for_window(window: np.ndarray) -> dict:
 
 def run_pipeline(csv_path: str, output_csv: Optional[str] = None, plot: bool = False) -> pd.DataFrame:
     """
-    Load CSV, preprocess bicep channels, segment, extract features, save to CSV.
+    Load CSV, preprocess active channels (EMG/EEG), segment, extract features, save to CSV.
     Returns the features DataFrame.
     """
     output_csv = output_csv or FEATURES_CSV_PATH
@@ -170,11 +173,12 @@ def run_pipeline(csv_path: str, output_csv: Optional[str] = None, plot: bool = F
             if n_channels == 1:
                 axes = [axes]
             t_axis = np.arange(n_samples) / fs
+            active_idx = get_active_channel_indices()
             for ch in range(n_channels):
                 axes[ch].plot(t_axis, data[:, ch], alpha=0.8)
-                axes[ch].set_ylabel(f"Ch{BICEP_CHANNEL_INDICES[ch]} (µV)")
+                axes[ch].set_ylabel(f"Ch{active_idx[ch] if ch < len(active_idx) else ch} (µV)")
             axes[-1].set_xlabel("Time (s)")
-            axes[0].set_title("Preprocessed bicep channels")
+            axes[0].set_title("Preprocessed channels")
             plt.tight_layout()
             plot_path = Path(output_csv).with_suffix(".png")
             plt.savefig(plot_path)
