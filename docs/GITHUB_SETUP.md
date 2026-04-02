@@ -18,9 +18,11 @@ Follow these steps to put this project on GitHub.
    - **Do not** add a README, .gitignore, or license (this folder already has them).
 4. Click **Create repository**.
 
-## 3. Initialize Git and push from this folder
+## 3. Push from this folder
 
-Open a terminal (PowerShell or Command Prompt) and run:
+### If this folder is **not** yet a git repo
+
+Open PowerShell and run:
 
 ```powershell
 cd "c:\Users\cants\OneDrive\Desktop\Hadimani Lab\OPENBCICOMMUNICATION"
@@ -33,6 +35,18 @@ git branch -M main
 git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git
 git push -u origin main
 ```
+
+### If git is **already** initialized (`git status` works)
+
+Create the **empty** repo on GitHub (step 2), then:
+
+```powershell
+cd "c:\Users\cants\OneDrive\Desktop\Hadimani Lab\OPENBCICOMMUNICATION"
+git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git
+git push -u origin main
+```
+
+If `origin` already exists, use `git remote set-url origin https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git` instead.
 
 Replace `YOUR_USERNAME` with your GitHub username and `YOUR_REPO_NAME` with the repo name you chose (e.g. `OPENBCICOMMUNICATION`).
 
