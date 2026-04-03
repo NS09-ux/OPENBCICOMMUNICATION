@@ -45,6 +45,14 @@ FEATURES_CSV_PATH = "features.csv"
 # --- Streaming ---
 CYTON_SERIAL_PORT = "COM3"  # Windows. On Pi: "/dev/ttyUSB0" or "/dev/ttyACM0"
 
+# --- ROS /emg_commands (cyton_emg_ros): four muscles → EXG indices 0–15 ---
+# Order: [bicep, forearm, shoulder, thumb]. Match your electrode wiring to the board.
+EMG_COMMANDS_EXG_INDICES = [0, 1, 2, 3]
+# Mean absolute envelope (µV) must exceed this to count as active (1). Tune per user; or use four values.
+EMG_COMMANDS_THRESHOLD_UV = 75.0
+# How many samples per channel to average for envelope (at ~125 Hz, 32 ≈ 0.26 s)
+EMG_COMMANDS_ENVELOPE_SAMPLES = 32
+
 
 def get_active_channel_indices():
     """Return the list of EXG channel indices to use (10 for EMG, 16 for EEG)."""

@@ -52,6 +52,7 @@ Output: `features.csv` (one row per time window) and optionally a plot of prepro
 
 - **`gesture_interpreter/`** — 4-channel binary EMG `[bicep, forearm, shoulder, thumb]`, time window, combined patterns → command strings (`HOME`, `MOVE_FORWARD`, …).
 - **`gesture_interpreter_ros/`** — ROS 2 Jazzy node: subscribes to `/emg_commands`, publishes `/robot_commands` and deadman-gated `/robot_motion_command`.
+- **`cyton_emg_ros/`** — ROS 2 node: OpenBCI Cyton (BrainFlow) → `/emg_commands` (Phase 2 pipeline).
 - **Build & run (Ubuntu 24.04 + Jazzy):** see **[README_ROS2.md](README_ROS2.md)** (`colcon build`, Raspberry Pi or lab PC).
 - **Layout:** [docs/PROJECT_LAYOUT.md](docs/PROJECT_LAYOUT.md), Pi notes: [docs/RASPBERRY_PI_LAYOUT.md](docs/RASPBERRY_PI_LAYOUT.md).
 

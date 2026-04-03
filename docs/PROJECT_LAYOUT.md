@@ -15,6 +15,9 @@ OPENBCICOMMUNICATION/
 ├── gesture_interpreter_ros/   # ROS 2 Jazzy: /emg_commands → /robot_commands
 │   ├── launch/
 │   └── gesture_interpreter_ros/
+├── cyton_emg_ros/             # ROS 2: Cyton (BrainFlow) → /emg_commands
+│   ├── launch/
+│   └── cyton_emg_ros/
 ├── README_ROS2.md             # colcon build, topics, deadman, Kinova notes
 ├── robot_driver_ros2.py       # Optional rclpy print stub for gesture topics
 ├── ssvep_interpreter/         # EEG window → SSVEP command (FRONT/LEFT/…)
