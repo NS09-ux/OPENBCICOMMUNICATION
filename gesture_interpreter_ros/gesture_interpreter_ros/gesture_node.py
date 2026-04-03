@@ -76,10 +76,10 @@ class GestureInterpreterNode(Node):
         elif source == "topic":
             dt = str(self.get_parameter("deadman_topic").value)
             self._deadman_sub = self.create_subscription(Bool, dt, self._on_deadman_msg, 10)
-            self.get_logger().info('deadman_source=topic: subscribe to "%s" (Bool)', dt)
+            self.get_logger().info(f'deadman_source=topic: subscribe to "{dt}" (Bool)')
         else:
             self.get_logger().warn(
-                "Unknown deadman_source=%r; using topic", source
+                f"Unknown deadman_source={source!r}; using topic"
             )
             dt = str(self.get_parameter("deadman_topic").value)
             self._deadman_sub = self.create_subscription(Bool, dt, self._on_deadman_msg, 10)
@@ -89,11 +89,8 @@ class GestureInterpreterNode(Node):
         self.create_timer(period, self._publish_deadman_state)
 
         self.get_logger().info(
-            'Subscribing emg="%s" publishing commands="%s" motion="%s" deadman_state="%s"',
-            emg_topic,
-            cmd_topic,
-            motion_topic,
-            deadman_pub_topic,
+            f'Subscribing emg="{emg_topic}" publishing commands="{cmd_topic}" '
+            f'motion="{motion_topic}" deadman_state="{deadman_pub_topic}"'
         )
 
     def _on_deadman_msg(self, msg: Bool) -> None:
@@ -144,8 +141,7 @@ class GestureInterpreterNode(Node):
         data = list(msg.data)
         if len(data) != 4:
             self.get_logger().warn(
-                "Expected 4 EMG channels [bicep, forearm, shoulder, thumb]; got len=%d",
-                len(data),
+                f"Expected 4 EMG channels [bicep, forearm, shoulder, thumb]; got len={len(data)}"
             )
             return
 
@@ -158,21 +154,21 @@ class GestureInterpreterNode(Node):
         s = String()
         s.data = cmd
         self._pub_cmd.publish(s)
-        self.get_logger().info('Gesture detected: command="%s" (published to robot_commands)', cmd)
+        self.get_logger().info(
+            f'Gesture detected: command="{cmd}" (published to robot_commands)'
+        )
 
         motion = String()
         motion.data = cmd if self._deadman_active() else ""
         self._pub_motion.publish(motion)
+        motion_topic = str(self.get_parameter("robot_motion_command_topic").value)
         if self._deadman_active():
             self.get_logger().info(
-                'Deadman active: motion command="%s" -> %s',
-                cmd,
-                str(self.get_parameter("robot_motion_command_topic").value),
+                f'Deadman active: motion command="{cmd}" -> {motion_topic}'
             )
         else:
             self.get_logger().info(
-                'Deadman inactive: motion command suppressed (command="%s" still on robot_commands)',
-                cmd,
+                f'Deadman inactive: motion command suppressed (command="{cmd}" still on robot_commands)'
             )
 
 
