@@ -21,6 +21,8 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Int32MultiArray
 
+from cyton_emg_ros.emg_demo_cycle import EmgDemoCycle
+
 # Optional: load defaults from repo config when running from workspace (…/OPENBCICOMMUNICATION).
 _here = Path(__file__).resolve()
 _REPO_ROOT = _here.parents[2] if len(_here.parents) > 2 else _here.parent
@@ -140,8 +142,13 @@ class CytonEmgPublisher(Node):
         self.declare_parameter("log_publish_hz", 1.0)
         # If simulate:=false but BrainFlow/Cyton fails, publish zeros instead of exiting.
         self.declare_parameter("recover_with_simulate_on_brainflow_failure", True)
+        # When simulate (or recovery fallback): rotate gesture-map patterns instead of only [0,0,0,0].
+        self.declare_parameter("simulate_cycle_gestures", True)
+        self.declare_parameter("simulate_cycle_dwell_seconds", 1.8)
+        self.declare_parameter("simulate_cycle_gap_seconds", 0.4)
 
         self._simulate = bool(self.get_parameter("simulate").value)
+        self._demo_cycle: Optional[EmgDemoCycle] = None
         self._log_publish_hz = float(self.get_parameter("log_publish_hz").value)
         self._last_pub_log = 0.0
         self._pub_topic = str(self.get_parameter("emg_topic").value)
@@ -169,12 +176,7 @@ class CytonEmgPublisher(Node):
 
         self._pub = self.create_publisher(Int32MultiArray, self._pub_topic, 10)
 
-        if self._simulate:
-            self.get_logger().warn(
-                "simulate=true: publishing zeros on /emg_commands (no Cyton). "
-                "Use for testing without hardware."
-            )
-        else:
+        if not self._simulate:
             recover = bool(
                 self.get_parameter("recover_with_simulate_on_brainflow_failure").value
             )
@@ -184,16 +186,30 @@ class CytonEmgPublisher(Node):
                 if not recover:
                     raise
                 self.get_logger().error(
-                    "Cyton / BrainFlow failed; falling back to publishing [0,0,0,0] on "
+                    "Cyton / BrainFlow failed; falling back to simulate behavior on "
                     f"/emg_commands. Reason: {e!r}. "
                     "Fix: ensure libBoardController.so exists and "
                     "`ldd .../libBoardController.so` shows no 'not found'. "
-                    "Or use simulate:=true intentionally. "
                     "Set recover_with_simulate_on_brainflow_failure:=false to exit on failure."
                 )
                 self._simulate = True
                 self._board = None
                 self._exg_rows = None
+
+        if self._simulate and bool(self.get_parameter("simulate_cycle_gestures").value):
+            self._demo_cycle = EmgDemoCycle(
+                float(self.get_parameter("simulate_cycle_dwell_seconds").value),
+                float(self.get_parameter("simulate_cycle_gap_seconds").value),
+                log=lambda m: self.get_logger().info(m),
+            )
+            self.get_logger().warn(
+                "Simulate / recovery: rotating 4-bit patterns (HOME, MOVE_FORWARD, …) on "
+                "/emg_commands — not real EMG. Set simulate_cycle_gestures:=false for constant [0,0,0,0]."
+            )
+        elif self._simulate:
+            self.get_logger().warn(
+                "simulate=true, simulate_cycle_gestures=false: constant [0,0,0,0] on /emg_commands."
+            )
 
         rate = float(self.get_parameter("publish_rate_hz").value)
         period = 1.0 / rate if rate > 0.0 else 0.02
@@ -201,7 +217,8 @@ class CytonEmgPublisher(Node):
 
         self.get_logger().info(
             f'Publishing Int32[4] to "{self._pub_topic}" at ~{rate:.1f} Hz '
-            f"(exg_indices={self._exg_indices}, simulate={self._simulate})"
+            f"(exg_indices={self._exg_indices}, simulate={self._simulate}, "
+            f"gesture_cycle={self._demo_cycle is not None})"
         )
         if self._log_publish_hz > 0.0:
             self.get_logger().info(
@@ -311,7 +328,10 @@ class CytonEmgPublisher(Node):
     def _on_timer(self) -> None:
         if self._simulate:
             msg = Int32MultiArray()
-            msg.data = [0, 0, 0, 0]
+            if self._demo_cycle is not None:
+                msg.data = self._demo_cycle.next_vector()
+            else:
+                msg.data = [0, 0, 0, 0]
             self._pub.publish(msg)
             self._maybe_log_publish(list(msg.data))
             return

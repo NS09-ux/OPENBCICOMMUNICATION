@@ -177,7 +177,9 @@ ros2 launch gesture_interpreter_ros gesture_interpreter.launch.py
 ### Cyton publisher parameters
 
 - `simulate`, `serial_port`, `use_daisy`, `exg_indices`, `threshold_microvolts`, `envelope_samples`, `publish_rate_hz`, `emg_topic`, `log_publish_hz` (default **1** log/s of what was published; set **0** to turn off)
-- `recover_with_simulate_on_brainflow_failure` (default **true**): if `simulate:=false` but BrainFlow or the board fails to start, keep the node alive and publish **`[0,0,0,0]`** with an error log; set **false** to exit (strict / CI).
+- `recover_with_simulate_on_brainflow_failure` (default **true**): if `simulate:=false` but BrainFlow or the board fails to start, keep the node alive and fall back to **simulate behavior** with an error log; set **false** to exit (strict / CI).
+- `simulate_cycle_gestures` (default **true**): when `simulate:=true` **or** recovery fallback, rotate **8** binary patterns on `/emg_commands` (HOME, MOVE_FORWARD, …) with gaps — **not** constant `[0,0,0,0]`. Set **false** for steady zeros only.
+- `simulate_cycle_dwell_seconds`, `simulate_cycle_gap_seconds` — timing for that rotation.
 
 ### Echo `/emg_commands` in a second terminal
 
