@@ -4,7 +4,7 @@
 
 **OpenBCI Cyton (muscle signals)** → binary **4× EMG** on **`/emg_commands`** → **named commands** (`HOME`, `MOVE_FORWARD`, …) on **`/robot_commands`** / **`/robot_motion_command`** (deadman-gated) → **`motion_command_bridge`** logs each new motion command (stub where you plug in **Kinova / MoveIt / `ros2_kortex`** on the machine that actually moves the arm).
 
-The **`demo_gesture`** launch only fakes EMG to prove ROS wiring; your real run is **`emg_and_gesture.launch.py`** with the Cyton connected (or `simulate:=true` for publisher smoke tests, knowing gestures will stay idle on all zeros).
+The **`demo_gesture`** launch only **simulates** EMG (rotating patterns through every mapped command) to prove ROS wiring — **it does not move any robot**. Real muscle data comes from **`emg_and_gesture.launch.py`** with the Cyton connected. **Physical motion** requires a separate node (e.g. lab **`ros2_kortex`** / MoveIt) that subscribes to **`/robot_motion_command`** and executes trajectories; this repository stops at the **string command** boundary by design.
 
 This workspace contains **three** **colcon** packages:
 
@@ -100,7 +100,7 @@ Watch the **bridge** (robot side stub) in the launch terminal: lines like **`[ro
 
 ### Layer 2 demo (no Cyton, no BrainFlow)
 
-One launch runs a **demo pattern publisher** (`[1,1,1,1]` at 20 Hz) plus **`gesture_interpreter_node`** with **`deadman_source:=always_on`**, so **`/robot_commands`** and **`/robot_motion_command`** both show **`HOME`** after the time window fills.
+One launch runs **`demo_emg_pattern`** with **`cycle_gestures:=true`** (zeros between holds, then each pattern in the gesture map order), plus **`gesture_interpreter_node`** with **`deadman_source:=always_on`**, plus **`motion_command_bridge`**. You should see **`HOME`**, **`MOVE_FORWARD`**, **`REACH_UP`**, … rotate on **`/robot_commands`** / **`/robot_motion_command`** — still **no hardware motion** until you add a robot driver.
 
 ```bash
 source /opt/ros/jazzy/setup.bash

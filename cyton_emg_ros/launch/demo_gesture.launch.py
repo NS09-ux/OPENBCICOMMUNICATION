@@ -1,13 +1,12 @@
 """
-Layer-2 demo: fake sustained EMG pattern + gesture_interpreter_node + motion_command_bridge.
+Layer-2 demo: demo_emg_pattern (cycles all mapped gestures) + gesture + motion_command_bridge.
 
-Publishes [1,1,1,1] on /emg_commands at 20 Hz and runs the gesture node with deadman
-always_on so /robot_commands and /robot_motion_command both show HOME (after window fills).
-The bridge logs [robot_pipeline] when a new motion command arrives (same seam as real robot).
+Publishes rotating 4-bit patterns (zeros between each) so you see HOME, MOVE_FORWARD, …
+on /robot_commands — not real muscle data; no arm moves until lab Kortex/MoveIt consumes
+/robot_motion_command. deadman always_on so motion topic matches commands.
 
 Terminal B:
   ros2 topic echo /robot_commands
-  ros2 topic echo /robot_motion_command
 """
 
 from launch import LaunchDescription
@@ -26,7 +25,9 @@ def generate_launch_description() -> LaunchDescription:
                     {
                         "emg_topic": "/emg_commands",
                         "publish_rate_hz": 20.0,
-                        "pattern": [1, 1, 1, 1],
+                        "cycle_gestures": True,
+                        "dwell_seconds": 1.8,
+                        "gap_seconds": 0.4,
                     }
                 ],
             ),
