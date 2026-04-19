@@ -25,6 +25,32 @@ pip install brainflow
 
 Use the same Python ROS uses (`which python3`). If `ros2 run` cannot import brainflow, try `pip3 install brainflow` or a venv aligned with your ROS setup.
 
+### `libBoardController.so: cannot open shared object file` (Pi / Linux)
+
+The Python package is present but the dynamic linker cannot load BrainFlow’s `lib/` (or a dependency of `libBoardController.so` is missing).
+
+1. **Confirm the file exists** (adjust `python3.12` to `python3 -c "import sys; print(sys.version_info)"`):
+
+   ```bash
+   ls -la "$HOME/.local/lib/python3.12/site-packages/brainflow/lib/"
+   ```
+
+2. **Export `LD_LIBRARY_PATH` in the same shell before `ros2 launch`** (path must match step 1):
+
+   ```bash
+   export LD_LIBRARY_PATH="$HOME/.local/lib/python3.12/site-packages/brainflow/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+   ```
+
+3. **If the file exists but still fails**, check missing dependencies:
+
+   ```bash
+   ldd "$HOME/.local/lib/python3.12/site-packages/brainflow/lib/libBoardController.so" | grep "not found"
+   ```
+
+4. **`cyton_emg_publisher` now prepends that `lib/` path automatically** when it finds it under `sys.path`; rebuild after `git pull`. If `libBoardController.so` is **absent** from `brainflow/lib/`, reinstall: `pip install --user --upgrade --force-reinstall brainflow`. On uncommon ARM images you may need [BrainFlow build from source](https://brainflow.readthedocs.io/en/stable/BuildBrainFlow.html).
+
+5. **Workaround without hardware:** `ros2 launch cyton_emg_ros emg_and_gesture.launch.py simulate:=true` (no BrainFlow board session; gestures stay idle on `[0,0,0,0]` unless you use `demo_gesture.launch.py`).
+
 ## Build (Ubuntu 24.04 / Raspberry Pi / lab PC with Jazzy)
 
 ```bash

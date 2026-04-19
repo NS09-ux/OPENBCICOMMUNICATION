@@ -27,6 +27,27 @@ if (_REPO_ROOT / "config" / "pipeline_config.py").is_file() and str(_REPO_ROOT) 
     sys.path.insert(0, str(_REPO_ROOT))
 
 
+def _ensure_brainflow_lib_path() -> None:
+    """Prepend BrainFlow's lib/ to LD_LIBRARY_PATH before dlopen (common Pi issue)."""
+    for root in sys.path:
+        if not root:
+            continue
+        candidate = Path(root) / "brainflow" / "lib"
+        if not candidate.is_dir():
+            continue
+        if not any(candidate.glob("libBoardController.so*")):
+            continue
+        lib_str = str(candidate)
+        prev = os.environ.get("LD_LIBRARY_PATH", "")
+        if lib_str in prev.split(":"):
+            return
+        os.environ["LD_LIBRARY_PATH"] = f"{lib_str}:{prev}" if prev else lib_str
+        return
+
+
+_ensure_brainflow_lib_path()
+
+
 def _load_pipeline_defaults() -> tuple:
     try:
         from config.pipeline_config import (
@@ -125,6 +146,7 @@ class CytonEmgPublisher(Node):
             )
 
     def _init_brainflow_board(self) -> None:
+        _ensure_brainflow_lib_path()
         try:
             from brainflow.board_shim import BoardShim, BrainFlowInputParams, BoardIds
         except ImportError as e:
@@ -132,6 +154,16 @@ class CytonEmgPublisher(Node):
                 "brainflow is not installed. On the Pi run: pip install brainflow "
                 f"(or use simulate:=true). Import error: {e}"
             )
+            raise
+        except OSError as e:
+            err = str(e).lower()
+            if "libboardcontroller" in err or "shared object" in err or "cannot open shared object" in err:
+                self.get_logger().fatal(
+                    f"BrainFlow native library failed to load: {e}. "
+                    "Try: export LD_LIBRARY_PATH=\"$HOME/.local/lib/python3.12/site-packages/brainflow/lib:$LD_LIBRARY_PATH\" "
+                    "(adjust python version), verify: ls \"$HOME/.local/lib/python3.12/site-packages/brainflow/lib/\", "
+                    "and: ldd .../libBoardController.so | grep 'not found'. On some ARM boards you may need to build BrainFlow from source."
+                )
             raise
 
         port = str(self.get_parameter("serial_port").value).strip()
@@ -169,7 +201,14 @@ class CytonEmgPublisher(Node):
                 board.release_session()
             except Exception:
                 pass
-            self.get_logger().fatal(f"Failed to start Cyton stream on {port!r}: {e}")
+            err = str(e).lower()
+            if "libboardcontroller" in err or "cannot open shared object" in err:
+                self.get_logger().fatal(
+                    f"Failed to start Cyton stream on {port!r}: {e} "
+                    "(BrainFlow .so or its dependencies missing — see README_ROS2 BrainFlow on the Pi)."
+                )
+            else:
+                self.get_logger().fatal(f"Failed to start Cyton stream on {port!r}: {e}")
             raise
 
         self._board = board
