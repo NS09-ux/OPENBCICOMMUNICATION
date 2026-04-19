@@ -105,6 +105,18 @@ ros2 launch gesture_interpreter_ros gesture_interpreter.launch.py
 
 - `simulate`, `serial_port`, `use_daisy`, `exg_indices`, `threshold_microvolts`, `envelope_samples`, `publish_rate_hz`, `emg_topic`
 
+### Echo `/emg_commands` in a second terminal
+
+While `cyton_emg_publisher` is running:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+source ~/OPENBCICOMMUNICATION/install/setup.bash
+ros2 run cyton_emg_ros emg_commands_receiver
+```
+
+Optional: `-p log_hz:=10.0` to change how often lines print (rate-limited logging).
+
 ### Quick test without Cyton (fake EMG)
 
 ```bash

@@ -22,6 +22,7 @@ setup(
     entry_points={
         "console_scripts": [
             "cyton_emg_publisher = cyton_emg_ros.cyton_emg_publisher:main",
+            "emg_commands_receiver = cyton_emg_ros.emg_commands_receiver:main",
         ],
     },
 )
