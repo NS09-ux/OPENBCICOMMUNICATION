@@ -72,6 +72,25 @@ ros2 run cyton_emg_ros cyton_emg_publisher --ros-args -p simulate:=true
 ros2 launch cyton_emg_ros emg_and_gesture.launch.py
 ```
 
+### Layer 2 demo (no Cyton, no BrainFlow)
+
+One launch runs a **demo pattern publisher** (`[1,1,1,1]` at 20 Hz) plus **`gesture_interpreter_node`** with **`deadman_source:=always_on`**, so **`/robot_commands`** and **`/robot_motion_command`** both show **`HOME`** after the time window fills.
+
+```bash
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+ros2 launch cyton_emg_ros demo_gesture.launch.py
+```
+
+In another terminal:
+
+```bash
+ros2 topic echo /robot_commands
+ros2 topic echo /robot_motion_command
+```
+
+Do **not** run **`demo_gesture.launch.py`** at the same time as **`cyton_emg_publisher`** on **`/emg_commands`** (two publishers on one topic).
+
 Hold deadman (default `deadman_source:=topic`):
 
 ```bash
