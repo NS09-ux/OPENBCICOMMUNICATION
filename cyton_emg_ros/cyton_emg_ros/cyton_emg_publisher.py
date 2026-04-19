@@ -10,6 +10,7 @@ Install on the Pi: pip install brainflow  (not shipped via apt rosdep)
 from __future__ import annotations
 
 import os
+import site
 import sys
 import time
 from pathlib import Path
@@ -27,22 +28,64 @@ if (_REPO_ROOT / "config" / "pipeline_config.py").is_file() and str(_REPO_ROOT) 
     sys.path.insert(0, str(_REPO_ROOT))
 
 
+def _site_package_roots() -> List[Path]:
+    """Paths where pip installs `brainflow/` (ros2 entrypoints may omit user site from sys.path)."""
+    roots: List[Path] = []
+    try:
+        u = site.getusersitepackages()
+        if u:
+            roots.append(Path(u))
+    except Exception:
+        pass
+    try:
+        for s in site.getsitepackages():
+            roots.append(Path(s))
+    except Exception:
+        pass
+    for p in sys.path:
+        if p:
+            roots.append(Path(p))
+    ver = f"{sys.version_info.major}.{sys.version_info.minor}"
+    roots.append(Path.home() / ".local" / "lib" / f"python{ver}" / "site-packages")
+    return roots
+
+
+def _brainflow_lib_dirs() -> List[Path]:
+    """Directories containing libBoardController.so (BrainFlow native core)."""
+    seen: set[str] = set()
+    out: List[Path] = []
+    for root in _site_package_roots():
+        try:
+            lib = root / "brainflow" / "lib"
+            so = lib / "libBoardController.so"
+            if not so.is_file():
+                continue
+            key = str(lib.resolve())
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(lib)
+        except Exception:
+            continue
+    return out
+
+
 def _ensure_brainflow_lib_path() -> None:
-    """Prepend BrainFlow's lib/ to LD_LIBRARY_PATH before dlopen (common Pi issue)."""
-    for root in sys.path:
-        if not root:
-            continue
-        candidate = Path(root) / "brainflow" / "lib"
-        if not candidate.is_dir():
-            continue
-        if not any(candidate.glob("libBoardController.so*")):
-            continue
-        lib_str = str(candidate)
+    """Prepend every BrainFlow lib/ to LD_LIBRARY_PATH before dlopen (Pi / ros2 run)."""
+    extra = os.environ.get("BRAINFLOW_LIB_PATH", "").strip()
+    if extra:
         prev = os.environ.get("LD_LIBRARY_PATH", "")
-        if lib_str in prev.split(":"):
-            return
-        os.environ["LD_LIBRARY_PATH"] = f"{lib_str}:{prev}" if prev else lib_str
-        return
+        if extra not in prev.split(":"):
+            os.environ["LD_LIBRARY_PATH"] = f"{extra}:{prev}" if prev else extra
+    libs = _brainflow_lib_dirs()
+    prev = os.environ.get("LD_LIBRARY_PATH", "")
+    parts = [p for p in prev.split(":") if p]
+    for lib in reversed(libs):
+        s = str(lib)
+        if s not in parts:
+            parts.insert(0, s)
+    if parts:
+        os.environ["LD_LIBRARY_PATH"] = ":".join(parts)
 
 
 _ensure_brainflow_lib_path()
@@ -147,6 +190,18 @@ class CytonEmgPublisher(Node):
 
     def _init_brainflow_board(self) -> None:
         _ensure_brainflow_lib_path()
+        bf_dirs = _brainflow_lib_dirs()
+        if bf_dirs:
+            self.get_logger().info(
+                "BrainFlow native lib path(s): "
+                + ", ".join(str(d / "libBoardController.so") for d in bf_dirs)
+            )
+        else:
+            self.get_logger().warn(
+                "No libBoardController.so found under site-packages (see pip install brainflow "
+                "for the same Python as this node). Set BRAINFLOW_LIB_PATH to the directory "
+                "containing libBoardController.so if it is installed elsewhere."
+            )
         try:
             from brainflow.board_shim import BoardShim, BrainFlowInputParams, BoardIds
         except ImportError as e:

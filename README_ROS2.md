@@ -47,9 +47,15 @@ The Python package is present but the dynamic linker cannot load BrainFlow’s `
    ldd "$HOME/.local/lib/python3.12/site-packages/brainflow/lib/libBoardController.so" | grep "not found"
    ```
 
-4. **`cyton_emg_publisher` now prepends that `lib/` path automatically** when it finds it under `sys.path`; rebuild after `git pull`. If `libBoardController.so` is **absent** from `brainflow/lib/`, reinstall: `pip install --user --upgrade --force-reinstall brainflow`. On uncommon ARM images you may need [BrainFlow build from source](https://brainflow.readthedocs.io/en/stable/BuildBrainFlow.html).
+4. **`cyton_emg_publisher` prepends that `lib/` path automatically** (it searches **user site-packages** as well as `sys.path`, which fixes many `ros2 run` cases). Rebuild after `git pull`. If the `.so` is installed in a custom location:
 
-5. **Workaround without hardware:** `ros2 launch cyton_emg_ros emg_and_gesture.launch.py simulate:=true` (no BrainFlow board session; gestures stay idle on `[0,0,0,0]` unless you use `demo_gesture.launch.py`).
+   ```bash
+   export BRAINFLOW_LIB_PATH="/path/to/directory/containing_libBoardController.so"
+   ```
+
+5. If `libBoardController.so` is **absent** from `brainflow/lib/`, reinstall: `pip install --user --upgrade --force-reinstall brainflow`. On uncommon ARM images you may need [BrainFlow build from source](https://brainflow.readthedocs.io/en/stable/BuildBrainFlow.html).
+
+6. **Workaround without hardware:** `ros2 launch cyton_emg_ros emg_and_gesture.launch.py simulate:=true` (no BrainFlow board session; gestures stay idle on `[0,0,0,0]` unless you use `demo_gesture.launch.py`).
 
 ## Build (Ubuntu 24.04 / Raspberry Pi / lab PC with Jazzy)
 
