@@ -138,6 +138,8 @@ class CytonEmgPublisher(Node):
         self.declare_parameter("emg_topic", "/emg_commands")
         # If > 0, log last published vector at most this many times per second (publisher is otherwise quiet).
         self.declare_parameter("log_publish_hz", 1.0)
+        # If simulate:=false but BrainFlow/Cyton fails, publish zeros instead of exiting.
+        self.declare_parameter("recover_with_simulate_on_brainflow_failure", True)
 
         self._simulate = bool(self.get_parameter("simulate").value)
         self._log_publish_hz = float(self.get_parameter("log_publish_hz").value)
@@ -173,7 +175,25 @@ class CytonEmgPublisher(Node):
                 "Use for testing without hardware."
             )
         else:
-            self._init_brainflow_board()
+            recover = bool(
+                self.get_parameter("recover_with_simulate_on_brainflow_failure").value
+            )
+            try:
+                self._init_brainflow_board()
+            except Exception as e:
+                if not recover:
+                    raise
+                self.get_logger().error(
+                    "Cyton / BrainFlow failed; falling back to publishing [0,0,0,0] on "
+                    f"/emg_commands. Reason: {e!r}. "
+                    "Fix: ensure libBoardController.so exists and "
+                    "`ldd .../libBoardController.so` shows no 'not found'. "
+                    "Or use simulate:=true intentionally. "
+                    "Set recover_with_simulate_on_brainflow_failure:=false to exit on failure."
+                )
+                self._simulate = True
+                self._board = None
+                self._exg_rows = None
 
         rate = float(self.get_parameter("publish_rate_hz").value)
         period = 1.0 / rate if rate > 0.0 else 0.02
@@ -202,10 +222,23 @@ class CytonEmgPublisher(Node):
                 "for the same Python as this node). Set BRAINFLOW_LIB_PATH to the directory "
                 "containing libBoardController.so if it is installed elsewhere."
             )
+
+        if bf_dirs:
+            so0 = bf_dirs[0] / "libBoardController.so"
+            if so0.is_file():
+                import ctypes
+
+                try:
+                    ctypes.CDLL(str(so0), mode=ctypes.RTLD_GLOBAL)
+                except OSError as pe:
+                    self.get_logger().warn(
+                        f"ctypes preload of libBoardController.so failed (will try normal import): {pe}"
+                    )
+
         try:
             from brainflow.board_shim import BoardShim, BrainFlowInputParams, BoardIds
         except ImportError as e:
-            self.get_logger().fatal(
+            self.get_logger().error(
                 "brainflow is not installed. On the Pi run: pip install brainflow "
                 f"(or use simulate:=true). Import error: {e}"
             )
@@ -213,7 +246,7 @@ class CytonEmgPublisher(Node):
         except OSError as e:
             err = str(e).lower()
             if "libboardcontroller" in err or "shared object" in err or "cannot open shared object" in err:
-                self.get_logger().fatal(
+                self.get_logger().error(
                     f"BrainFlow native library failed to load: {e}. "
                     "Try: export LD_LIBRARY_PATH=\"$HOME/.local/lib/python3.12/site-packages/brainflow/lib:$LD_LIBRARY_PATH\" "
                     "(adjust python version), verify: ls \"$HOME/.local/lib/python3.12/site-packages/brainflow/lib/\", "
@@ -256,14 +289,7 @@ class CytonEmgPublisher(Node):
                 board.release_session()
             except Exception:
                 pass
-            err = str(e).lower()
-            if "libboardcontroller" in err or "cannot open shared object" in err:
-                self.get_logger().fatal(
-                    f"Failed to start Cyton stream on {port!r}: {e} "
-                    "(BrainFlow .so or its dependencies missing — see README_ROS2 BrainFlow on the Pi)."
-                )
-            else:
-                self.get_logger().fatal(f"Failed to start Cyton stream on {port!r}: {e}")
+            self.get_logger().error(f"Failed to start Cyton stream on {port!r}: {e}")
             raise
 
         self._board = board
