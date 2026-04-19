@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from pathlib import Path
 from typing import List, Optional
 
@@ -71,8 +72,12 @@ class CytonEmgPublisher(Node):
         self.declare_parameter("envelope_samples", d_env)
         self.declare_parameter("publish_rate_hz", 50.0)
         self.declare_parameter("emg_topic", "/emg_commands")
+        # If > 0, log last published vector at most this many times per second (publisher is otherwise quiet).
+        self.declare_parameter("log_publish_hz", 1.0)
 
         self._simulate = bool(self.get_parameter("simulate").value)
+        self._log_publish_hz = float(self.get_parameter("log_publish_hz").value)
+        self._last_pub_log = 0.0
         self._pub_topic = str(self.get_parameter("emg_topic").value)
         self._envelope = max(4, int(self.get_parameter("envelope_samples").value))
         self._exg_indices: List[int] = list(
@@ -114,6 +119,10 @@ class CytonEmgPublisher(Node):
             f'Publishing Int32[4] to "{self._pub_topic}" at ~{rate:.1f} Hz '
             f"(exg_indices={self._exg_indices}, simulate={self._simulate})"
         )
+        if self._log_publish_hz > 0.0:
+            self.get_logger().info(
+                f"log_publish_hz={self._log_publish_hz:.2f} (heartbeat logs; set log_publish_hz:=0 to disable)"
+            )
 
     def _init_brainflow_board(self) -> None:
         try:
@@ -169,11 +178,22 @@ class CytonEmgPublisher(Node):
             f"Cyton streaming: port={port!r} daisy={use_daisy} fs={fs} Hz rows={rows}"
         )
 
+    def _maybe_log_publish(self, data_vec: List[int]) -> None:
+        if self._log_publish_hz <= 0.0:
+            return
+        now = time.monotonic()
+        min_dt = 1.0 / self._log_publish_hz
+        if now - self._last_pub_log < min_dt:
+            return
+        self._last_pub_log = now
+        self.get_logger().info(f"published data={data_vec} -> {self._pub_topic!r}")
+
     def _on_timer(self) -> None:
         if self._simulate:
             msg = Int32MultiArray()
             msg.data = [0, 0, 0, 0]
             self._pub.publish(msg)
+            self._maybe_log_publish(list(msg.data))
             return
 
         assert self._board is not None and self._exg_rows is not None
@@ -190,6 +210,7 @@ class CytonEmgPublisher(Node):
         msg = Int32MultiArray()
         msg.data = [int(x) for x in out]
         self._pub.publish(msg)
+        self._maybe_log_publish(out)
 
     def shutdown_board(self) -> None:
         if self._board is None:

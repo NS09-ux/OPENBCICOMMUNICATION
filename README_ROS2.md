@@ -103,7 +103,7 @@ ros2 launch gesture_interpreter_ros gesture_interpreter.launch.py
 
 ### Cyton publisher parameters
 
-- `simulate`, `serial_port`, `use_daisy`, `exg_indices`, `threshold_microvolts`, `envelope_samples`, `publish_rate_hz`, `emg_topic`
+- `simulate`, `serial_port`, `use_daisy`, `exg_indices`, `threshold_microvolts`, `envelope_samples`, `publish_rate_hz`, `emg_topic`, `log_publish_hz` (default **1** log/s of what was published; set **0** to turn off)
 
 ### Echo `/emg_commands` in a second terminal
 
