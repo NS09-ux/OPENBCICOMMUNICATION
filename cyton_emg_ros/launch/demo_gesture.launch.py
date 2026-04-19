@@ -1,8 +1,9 @@
 """
-Layer-2 demo: fake sustained EMG pattern + gesture_interpreter_node.
+Layer-2 demo: fake sustained EMG pattern + gesture_interpreter_node + motion_command_bridge.
 
 Publishes [1,1,1,1] on /emg_commands at 20 Hz and runs the gesture node with deadman
 always_on so /robot_commands and /robot_motion_command both show HOME (after window fills).
+The bridge logs [robot_pipeline] when a new motion command arrives (same seam as real robot).
 
 Terminal B:
   ros2 topic echo /robot_commands
@@ -40,6 +41,13 @@ def generate_launch_description() -> LaunchDescription:
                         "emg_topic": "/emg_commands",
                     }
                 ],
+            ),
+            Node(
+                package="gesture_interpreter_ros",
+                executable="motion_command_bridge",
+                name="motion_command_bridge",
+                output="screen",
+                parameters=[{"motion_command_topic": "/robot_motion_command"}],
             ),
         ]
     )

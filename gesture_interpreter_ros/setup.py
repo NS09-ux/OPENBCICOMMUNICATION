@@ -23,6 +23,7 @@ setup(
     entry_points={
         "console_scripts": [
             "gesture_interpreter_node = gesture_interpreter_ros.gesture_node:main",
+            "motion_command_bridge = gesture_interpreter_ros.motion_command_bridge:main",
         ],
     },
 )

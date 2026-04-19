@@ -1,12 +1,18 @@
 # ROS 2 Jazzy — EMG gesture interpreter + Cyton bridge
 
+## What this stack is for (lab goal)
+
+**OpenBCI Cyton (muscle signals)** → binary **4× EMG** on **`/emg_commands`** → **named commands** (`HOME`, `MOVE_FORWARD`, …) on **`/robot_commands`** / **`/robot_motion_command`** (deadman-gated) → **`motion_command_bridge`** logs each new motion command (stub where you plug in **Kinova / MoveIt / `ros2_kortex`** on the machine that actually moves the arm).
+
+The **`demo_gesture`** launch only fakes EMG to prove ROS wiring; your real run is **`emg_and_gesture.launch.py`** with the Cyton connected (or `simulate:=true` for publisher smoke tests, knowing gestures will stay idle on all zeros).
+
 This workspace contains **three** **colcon** packages:
 
 | Package | Role |
 |---------|------|
 | `gesture_interpreter` | Pure Python: 4× binary EMG → combined pattern → command string |
-| `gesture_interpreter_ros` | `rclpy` node: `/emg_commands` → `/robot_commands` + deadman-gated `/robot_motion_command` |
-| `cyton_emg_ros` | **Phase 2:** Cyton via **BrainFlow** → `/emg_commands` (`Int32MultiArray` length 4) |
+| `gesture_interpreter_ros` | `gesture_interpreter_node`: `/emg_commands` → `/robot_commands` + deadman-gated `/robot_motion_command`; **`motion_command_bridge`**: subscribe to motion commands (stub for robot driver) |
+| `cyton_emg_ros` | Cyton via **BrainFlow** → `/emg_commands` (`Int32MultiArray` length 4) |
 
 ## BrainFlow on the Pi (required for real hardware)
 
@@ -66,11 +72,31 @@ Publishes `[0,0,0,0]` at the configured rate:
 ros2 run cyton_emg_ros cyton_emg_publisher --ros-args -p simulate:=true
 ```
 
-## Run Cyton + gesture interpreter together
+## Run the full EMG → gesture → robot-pipeline stub (main Pi command)
+
+Launches **three** nodes: **`cyton_emg_publisher`**, **`gesture_interpreter_node`**, **`motion_command_bridge`** (consumes `/robot_motion_command` and logs each new command — replace with your driver).
 
 ```bash
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
 ros2 launch cyton_emg_ros emg_and_gesture.launch.py
 ```
+
+Optional launch overrides:
+
+```bash
+ros2 launch cyton_emg_ros emg_and_gesture.launch.py serial_port:=/dev/ttyUSB0
+ros2 launch cyton_emg_ros emg_and_gesture.launch.py simulate:=true
+ros2 launch cyton_emg_ros emg_and_gesture.launch.py deadman_source:=always_on
+```
+
+With default **`deadman_source:=topic`**, allow motion in another terminal:
+
+```bash
+ros2 topic pub /deadman std_msgs/msg/Bool "{data: true}" --rate 10
+```
+
+Watch the **bridge** (robot side stub) in the launch terminal: lines like **`[robot_pipeline] New motion command: "HOME"`** mean a deadman-safe string reached the consumption node (same place you will call into Kortex later).
 
 ### Layer 2 demo (no Cyton, no BrainFlow)
 
@@ -91,12 +117,6 @@ ros2 topic echo /robot_motion_command
 
 Do **not** run **`demo_gesture.launch.py`** at the same time as **`cyton_emg_publisher`** on **`/emg_commands`** (two publishers on one topic).
 
-Hold deadman (default `deadman_source:=topic`):
-
-```bash
-ros2 topic pub /deadman std_msgs/msg/Bool "{data: true}" --rate 10
-```
-
 ## Run gesture node alone (fake EMG)
 
 ```bash
@@ -114,6 +134,8 @@ ros2 launch gesture_interpreter_ros gesture_interpreter.launch.py
 | `/robot_motion_command` | `std_msgs/msg/String` | Same command **only while deadman is active**; empty string otherwise |
 | `/deadman_active` | `std_msgs/msg/Bool` | Echo of whether motion is allowed |
 | `/deadman` | `std_msgs/msg/Bool` | **Input** when `deadman_source:=topic` (hold `true` to allow motion) |
+
+**`motion_command_bridge`** (same package): subscribes to `/robot_motion_command`, logs each **new** non-empty command; extend this node (or run your own subscriber) to send trajectories to the arm. Run it via **`emg_and_gesture.launch.py`** or **`demo_gesture.launch.py`**, or: `ros2 run gesture_interpreter_ros motion_command_bridge`.
 
 ### Gesture node parameters
 
@@ -147,7 +169,7 @@ ros2 topic pub /emg_commands std_msgs/msg/Int32MultiArray "{data: [1,1,1,1]}" --
 
 This repo **does not** install or launch Kortex. Your lab stack should:
 
-1. Subscribe to **`/robot_motion_command`** (`std_msgs/String`) — or **`/robot_commands`** if you accept the risk without deadman.
+1. Either **extend `motion_command_bridge`** or run a separate node that subscribes to **`/robot_motion_command`** (`std_msgs/String`) — or **`/robot_commands`** only if you accept motion without deadman.
 2. Map command strings (`HOME`, `MOVE_FORWARD`, …) to **MoveIt / kortex_driver** actions or joint trajectories.
 3. Run **Gazebo / RViz** from the official `ros2_kortex` bringup on a capable machine.
 
